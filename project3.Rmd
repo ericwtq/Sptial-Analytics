@@ -1,0 +1,95 @@
+---
+title: "Project3"
+author: "Tianqi Wang"
+date: "3/28/2017"
+output: html_document
+---
+
+```{r}
+
+#load package
+library(sp)
+library(spdep)
+library(classInt)
+library(rgeos)
+library(maptools)
+library(rgdal)
+library(weights)
+library(ggplot2)
+library(ape)
+library(spatstat)
+library(GISTools)
+
+#caculate the spatial autocorrelation
+
+ozone = read.table("/Users/ericwtq/Desktop/spatial data/project3/ozone.csv",sep=",",header=T)
+
+ozone_dis=as.matrix(dist(cbind(ozone$Lon, ozone$Lat)))
+
+ozone_dis1=1/ozone_dis
+
+diag(ozone_dis1)=0
+
+Moran.I(ozone$Av8top, ozone_dis1)
+
+```
+
+
+
+
+
+
+```{r}
+
+#load data
+OilGasLocationPA = readOGR(dsn="/Users/ericwtq/Desktop/spatial data/OilGasLocationPA",layer = "OilGasLocationPA")
+IndustrialMineralMiningPA = readOGR(dsn="/Users/ericwtq/Desktop/spatial data/IndustrialMineralMiningOperations2014_10",layer = "IndustrialMineralMiningOperations2014_10")
+
+OilGasLocationPA = as.ppp(OilGasLocationPA)
+IndustrialMineralMiningPA=as.ppp(IndustrialMineralMiningPA)
+
+```
+
+```{r}
+#apply the G,F,K,L function on OilGasLocationPA
+
+OilGasLocationPA_G = Gest(OilGasLocationPA)
+
+OilGasLocationPA_F = Fest(OilGasLocationPA)
+
+OilGasLocationPA_K = Kest(OilGasLocationPA)
+
+OilGasLocationPA_L = Lest(OilGasLocationPA)
+
+plot(OilGasLocationPA_G,main="G function for OilGasLocationPA")
+
+plot(OilGasLocationPA_F,main="F function for OilGasLocationPA")
+
+plot(OilGasLocationPA_K,main="K function for OilGasLocationPA")
+
+plot(OilGasLocationPA_L,main="L function for OilGasLocationPA")
+
+```
+
+
+```{r}
+#apply the G,F,K,L function on IndustrialMineralMiningPA
+
+IndustrialMineralMiningPA_G = Gest(IndustrialMineralMiningPA)
+
+IndustrialMineralMiningPA_F = Fest(IndustrialMineralMiningPA)
+
+IndustrialMineralMiningPA_K = Kest(IndustrialMineralMiningPA)
+
+IndustrialMineralMiningPA_L = Lest(IndustrialMineralMiningPA)
+
+plot(IndustrialMineralMiningPA_G,main="G function for IndustrialMineralMiningPA")
+
+plot(IndustrialMineralMiningPA_F,main="F function for IndustrialMineralMiningPA")
+
+plot(IndustrialMineralMiningPA_K,main="K function for IndustrialMineralMiningPA")
+
+plot(IndustrialMineralMiningPA_L,main="L function for IndustrialMineralMiningPA")
+
+
+```

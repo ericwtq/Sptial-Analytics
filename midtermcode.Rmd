@@ -1,0 +1,156 @@
+---
+title: "Midterm"
+author: "Tianqi Wang"
+date: "3/2/2017"
+output:
+  word_document: default
+  html_document: default
+---
+
+
+```{r}
+#load package
+library(sp)
+library(spdep)
+library(classInt)
+library(rgeos)
+library(maptools)
+library(rgdal)
+library(weights)
+library(ggplot2)
+library(ape)
+library(spatstat)
+library(GISTools)
+#load the data
+
+PALocs = readOGR(dsn="/Users/ericwtq/Desktop/spatial data/midterm/PALocs/PALocs.shp")
+PALocs1 = as(PALocs,"SpatialPoints")
+PALocs2 = as(PALocs1,"ppp")
+
+PACoals = readOGR(dsn="/Users/ericwtq/Desktop/spatial data/midterm/PACoals/PACoals.shp")
+PACoals1 = as(PACoals,"SpatialPoints")
+PACoals2 = as(PACoals1,"ppp")
+```
+
+
+```{r}
+#do the random quadrat count for PALocs
+point_coord1=coords(PALocs2)
+
+cells1 = list()
+
+for (i in 1:60){
+  x1=runif(1,min(point_coord1$x),max(point_coord1$x))
+  x2=runif(1,min(point_coord1$y),max(point_coord1$y))
+  xy=matrix(c(x1, x2, x1, x2+2/6, x1+5/10, x2+2/6, x1+5/10, x2, x1,x2),ncol = 2, byrow = TRUE)
+  cells1[i]=Polygons(list(Polygon(xy)), ID = i)
+}
+
+cells1=SpatialPolygons(cells1)
+
+PALocs_count=poly.counts(PALocs1,cells1)
+
+plot(PALocs, lwd=1, col="red")
+
+plot(cells1,add=TRUE)
+
+title(main="random quadrat count method for PALocs")
+
+#create the table to show the caculation for random quadrat count method of PALocs
+
+m1 = nrow(PALocs)/60
+
+PALocs_table = as.data.frame(table(PALocs_count))
+
+PALocs_table$k1=as.numeric(PALocs_table$PALocs_count)-m1
+
+PALocs_table$k2=(PALocs_table$k1)*(PALocs_table$k1)
+
+PALocs_table$k3=(PALocs_table$k2)*(PALocs_table$Freq)
+
+colnames(PALocs_table)=c("No. of Events(K)", "Number of Quadrats(X)", "K-m", "(K-m)^2", "X(K-m)^2")
+
+vmr1=(sum(PALocs_table$`X(K-m)^2`)/(sum(PALocs_table$`Number of Quadrats(X)`)-1))/m1
+
+vmr1
+
+PALocs_table
+
+
+
+```
+
+
+
+```{r}
+
+#do the random quadrat count for PALocs
+point_coord2=coords(PACoals2)
+
+cells2 = list()
+
+for (i in 1:1000){
+  x1=runif(1,min(point_coord2$x),max(point_coord2$x))
+  x2=runif(1,min(point_coord2$y),max(point_coord2$y))
+  xy=matrix(c(x1, x2, x1, x2+2/20, x1+4/50, x2+2/20, x1+4/50, x2, x1,x2),ncol = 2, byrow = TRUE)
+  cells2[i]=Polygons(list(Polygon(xy)), ID = i)
+}
+
+cells2=SpatialPolygons(cells2)
+
+PACoals_count=poly.counts(PACoals1,cells2)
+
+plot(PACoals, lwd=0.1, col="red")
+
+plot(cells2,add=TRUE)
+
+title(main="random quadrat count method for PACoals")
+
+#create the table to show the caculation for random quadrat count method of PALocs
+
+m2 = nrow(PACoals)/1000
+
+PACoals_table = as.data.frame(table(PACoals_count))
+
+PACoals_table$k1=as.numeric(PACoals_table$PACoals_count)-m2
+
+PACoals_table$k2=(PACoals_table$k1)*(PACoals_table$k1)
+
+PACoals_table$k3=(PACoals_table$k2)*(PACoals_table$Freq)
+
+colnames(PACoals_table)=c("No. of Events(K)", "Number of Quadrats(X)", "K-m", "(K-m)^2", "X(K-m)^2")
+
+vmr2=(sum(PACoals_table$`X(K-m)^2`)/(sum(PACoals_table$`Number of Quadrats(X)`)-1))/m2
+
+vmr2
+
+PACoals_table
+
+```
+
+
+
+
+```{r}
+
+#plot the G and F function for PALocs
+
+PALocs_G=Gest(PALocs2)
+
+PALocs_F=Fest(PALocs2)
+
+plot(PALocs_G,main="G function for PALocs")
+
+plot(PALocs_F,main="F function for PALocs")
+
+#plot the G and F function for PACoals
+
+PACoals_G=Gest(PACoals2)
+
+PACoals_F=Fest(PACoals2)
+
+plot(PACoals_G,main="G function for PACoals")
+      
+plot(PACoals_F,main="F function for PACoals")
+
+```

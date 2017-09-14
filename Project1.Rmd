@@ -1,0 +1,85 @@
+---
+title: "Project1"
+author: "Tianqi Wang"
+date: "2/1/2017"
+output: word_document
+---
+Manipulation
+```{r}
+#question 1
+
+library(sp)
+library(spdep)
+library(classInt)
+library(rgeos)
+library(maptools)
+library(rgdal)
+library(weights)
+library(ggplot2)
+library(ape)
+
+#read pghstreet shapefile
+pghstreet = readOGR(dsn="/Users/ericwtq/Desktop/spatial data/pgh_streets/pgh_streets",layer = "pgh_streets")
+summary(pghstreet)
+
+#Find the total number of road segments 
+num_segment = nrow(pghstreet)
+num_segment
+
+#Calculate minimum, maximum, and mean segment lengths
+min_length = min(pghstreet$LENGTH)
+min_length
+max_length = max(pghstreet$LENGTH)
+max_length
+mean_length = mean(pghstreet$LENGTH)
+mean_length
+
+#Filter out the segments that are below the mean length that you calculated in (b) and then
+#create a map showing the remaining segments. 
+pghstreet.filtered=pghstreet[pghstreet$LENGTH>mean(pghstreet$LENGTH),]
+summary(pghstreet.filtered)
+plot(pghstreet.filtered, lwd=1, col="red")
+title(main="Pittsburgh Streets", sub="roads longer than mean")
+```
+
+
+Aggregation
+```{r}
+#question 2
+
+load("/Users/ericwtq/Desktop/spatial data/lnd.RData")
+load("/Users/ericwtq/Desktop/spatial data/stations.RData")
+
+str(lnd)
+summary(lnd)
+
+str(stations)
+summary(stations)
+
+names(stations)
+names(lnd)
+
+plot(lnd)
+plot(stations ,add=T, col="red")
+
+
+#aggregate the data based on the mean of the point values.
+#create a map and prepare a report on the result
+stations.m = aggregate(stations[c("Value")], by=lnd,FUN=mean)
+q = cut(stations.m$Value, breaks = c(quantile(stations.m$Value)),include.lowest=T)
+summary(q)
+clr = as.character(factor(q,labels=paste0("gray", seq(20,80,20))))
+plot(stations.m , col=clr)
+legend(legend=paste0("q", 1:4), fill=paste0("gray", seq(20,80,20)),"topright")
+
+stations.C = aggregate(stations,lnd,length)
+stations.C@data[,1]
+x = rep.int(stations.m$Value,stations.C@data[,1])
+str(x)
+
+
+#Run regression on the point values before and after aggregation
+reg.model = lm(stations$Value ~ x)
+summary(reg.model)
+```
+

@@ -1,0 +1,128 @@
+---
+title: "Project2"
+author: "Tianqi Wang"
+date: "2/12/2017"
+output: word_document
+---
+
+```{r}
+#load package
+library(sp)
+library(spdep)
+library(classInt)
+library(rgeos)
+library(maptools)
+library(rgdal)
+library(weights)
+library(ggplot2)
+library(ape)
+library(spatstat)
+library(GISTools)
+#load the data
+OilGasLocation = readOGR(dsn="/Users/ericwtq/Desktop/spatial data/OilGasLocationPA",layer = "OilGasLocationPA")
+```
+
+
+```{r}
+
+# do the regular quadrat count  
+
+
+oilgaspoint=as(OilGasLocation,"SpatialPoints")
+
+oilgaspoint1=as(oilgaspoint,"ppp")
+
+oilgaspoint2=oilgaspoint1
+
+result_reg=quadrats(oilgaspoint1, 15 ,15)
+
+result_regc=quadratcount(oilgaspoint1, 15,15)
+
+plot(OilGasLocation, lwd=0.1, col="blue")
+
+plot(result_reg, add=TRUE, col="black")
+
+title(main="regular quadrat count method")
+
+```
+
+
+```{r}
+
+#create the table to show the caculation for regular quadrat count method
+
+
+m=nrow(OilGasLocation)/(15*15)
+
+rg_table = as.data.frame(table(result_regc))
+
+rg_table$k1=as.numeric(rg_table$result_regc)-m
+
+rg_table$k2=(rg_table$k1)*(rg_table$k1)
+
+rg_table$k3=(rg_table$k2)*(rg_table$Freq)
+
+colnames(rg_table)=c("No. of Events(K)", "Number of Quadrats(X)", "K-m", "(K-m)^2", "X(K-m)^2")
+
+vmr1=(sum(rg_table$`X(K-m)^2`)/(sum(rg_table$`Number of Quadrats(X)`)-1))/m
+
+vmr1
+
+rg_table
+```
+
+
+```{r}
+
+#do the random quadrat count
+
+point_coord=coords(oilgaspoint2)
+
+cells = list()
+
+#create 225 random rectangles
+
+for (i in 1:225){
+  x1=runif(1,min(point_coord$x),max(point_coord$x))
+  x2=runif(1,min(point_coord$y),max(point_coord$y))
+  xy=matrix(c(x1, x2, x1, x2+13000, x1+21000, x2+13000, x1+21000, x2, x1,x2),ncol = 2, byrow = TRUE)
+  cells[i]=Polygons(list(Polygon(xy)), ID = i)
+}
+
+cells=SpatialPolygons(cells)
+
+ran_count=poly.counts(oilgaspoint,cells)
+
+plot(OilGasLocation, lwd=0.1, col="blue")
+
+plot(cells,add=TRUE)
+
+title(main="random quadrat count method")
+
+```
+
+
+
+```{r}
+
+#create the table to show the caculation for random quadrat count method
+
+ran_table = as.data.frame(table(ran_count))
+
+ran_table$k1=as.numeric(ran_table$ran_count)-m
+
+ran_table$k2=(ran_table$k1)*(ran_table$k1)
+
+ran_table$k3=(ran_table$k2)*(ran_table$Freq)
+
+colnames(ran_table)=c("No. of Events(K)", "Number of Quadrats(X)", "K-m", "(K-m)^2", "X(K-m)^2")
+
+vmr2=(sum(ran_table$`X(K-m)^2`)/(sum(ran_table$`Number of Quadrats(X)`)-1))/m
+
+ran_table
+
+
+
+
+
+```

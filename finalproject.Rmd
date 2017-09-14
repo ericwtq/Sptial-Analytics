@@ -1,0 +1,214 @@
+---
+title: "Finalproject"
+author: "Tianqi Wang"
+date: "4/20/2017"
+output: word_document
+---
+
+```{r}
+#load package
+library(sp)
+library(spdep)
+library(classInt)
+library(rgeos)
+library(maptools)
+library(rgdal)
+library(weights)
+library(ggplot2)
+library(ape)
+library(spatstat)
+library(GISTools)
+library(GWmodel)
+library(PBSmapping)
+library(spgwr)
+library(gstat)
+library(tmap)
+library(raster)
+
+```
+
+PARTA
+```{r}
+#load data
+Neighbor1=readOGR("/Users/ericwtq/Desktop/spatial analytics/final/DataFiles_FinalExam/1_Neighbor1/1_Neighbor1.shp")
+
+Neighbor2=readOGR("/Users/ericwtq/Desktop/spatial analytics/final/DataFiles_FinalExam/1_Neighbor2/1_Neighbor2.shp")
+
+#map the polygons and value of the attrubutes
+map_Neighbor1=tm_shape(Neighbor1)+tm_polygons(col="POP_ARR02",palette="RdBu", auto.palette.mapping=FALSE,title="values of Neighbor1") +tm_legend(legend.outside=TRUE)
+
+map_Neighbor2=tm_shape(Neighbor2)+tm_polygons(col="POP_ARR02",palette="RdBu", auto.palette.mapping=FALSE,title="values of Neighbor2") +tm_legend(legend.outside=TRUE)
+
+#caculate the moran'i and ceary'c for Neighbor1
+Neighbor1_queen=poly2nb(Neighbor1,queen=TRUE)
+Neighbor1_rook=poly2nb(Neighbor1,queen=FALSE)
+
+Neighbor1_Q_W=nb2listw(Neighbor1_queen)
+Neighbor1_R_W=nb2listw(Neighbor1_rook)
+#calculate moran'i
+Neighbor1_Moran_Q=moran.test(Neighbor1$POP_ARR02,Neighbor1_Q_W)
+Neighbor1_Moran_R=moran.test(Neighbor1$POP_ARR02,Neighbor1_R_W)
+#calculate ceary'c
+Neighbor1_Ceary_Q=geary.test(Neighbor1$POP_ARR02,Neighbor1_Q_W)
+Neighbor1_Ceary_R=geary.test(Neighbor1$POP_ARR02,Neighbor1_R_W)
+
+#caculate the moran'i and ceary'c for Neighbor2
+Neighbor2_queen=poly2nb(Neighbor2,queen=TRUE)
+Neighbor2_rook=poly2nb(Neighbor2,queen=FALSE)
+
+Neighbor2_Q_W=nb2listw(Neighbor2_queen)
+Neighbor2_R_W=nb2listw(Neighbor2_rook)
+#calculate moran'i
+Neighbor2_Moran_Q=moran.test(Neighbor2$POP_ARR02,Neighbor2_Q_W)
+Neighbor2_Moran_R=moran.test(Neighbor2$POP_ARR02,Neighbor2_R_W)
+#calculate ceary'c
+Neighbor2_Ceary_Q=geary.test(Neighbor2$POP_ARR02,Neighbor2_Q_W)
+Neighbor2_Ceary_R=geary.test(Neighbor2$POP_ARR02,Neighbor2_R_W)
+
+
+
+```
+
+PARTB
+
+```{r}
+#load data
+Community2=readOGR("/Users/ericwtq/Desktop/spatial analytics/final/DataFiles_FinalExam/2_Community/2_Community.shp")
+
+#caluculate the center location
+center_loc=coordinates(Community2)
+as.data.frame(center_loc)
+colnames(center_loc)=c("long","lat")
+
+sampledata=Community2@data
+
+locations=SpatialPointsDataFrame(coords=sampledata[,c(5,6)],data=sampledata,proj4string = CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"))
+
+newdata=SpatialPoints(coords=center_loc[,c(1,2)],proj4string = CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"))
+
+#do the OK interpolation
+krige.out=gstat::krige(formula=Intensity~1,locations,newdata,model=vgm(6000, model="Exp",25))
+
+
+
+#do the IDW interpolation
+idw.out1=gstat::idw(formula=Intensity~1,locations,newdata,maxdist=170,idp=2)
+
+idw.out2=gstat::idw(formula=Intensity~1,locations,newdata,maxdist=70,idp=1)
+
+idw.out3=gstat::idw(formula=Intensity~1,locations,newdata,maxdist=400,idp=3)
+
+#map the result of ok and idw
+
+grd=as.data.frame(spsample(Community2, "regular", n=50000))
+
+names(grd)=c("S_long", "S_lat")
+coordinates(grd)=c("S_long", "S_lat")
+gridded(grd)=TRUE 
+fullgrid(grd)=TRUE
+proj4string(grd)=proj4string(Community2)
+
+locations_n=locations
+proj4string(locations_n)=proj4string(Community2)
+
+map.idw=gstat::idw(formula=Intensity~1,locations_n,newdata=grd,maxdist=170,idp=2)
+
+map.krige=gstat::krige(formula=Intensity~1,locations_n,newdata=grd,model=vgm(6000, model="Exp",25))
+
+r=raster(map.idw)
+r.m=mask(r,Community2,inverse=FALSE)
+
+r1=raster(map.krige)
+r.m1=mask(r1,Community2,inverse=FALSE)
+
+map_idw=tm_shape(r.m) + tm_raster(n=7,palette = "RdBu", auto.palette.mapping = FALSE,title="map idw") + tm_shape(krige.out) + tm_dots(size=0.2) +tm_legend(legend.outside=TRUE)
+
+map_krige=tm_shape(r.m1) + tm_raster(n=7,palette = "RdBu", auto.palette.mapping = FALSE,title="map ok") + tm_shape(krige.out) + tm_dots(size=0.2) +tm_legend(legend.outside=TRUE)
+
+
+```
+
+
+PARTC
+```{r}
+P1=readOGR("/Users/ericwtq/Desktop/spatial analytics/final/DataFiles_FinalExam/3_Area1/3_Area1.shp")
+
+P2=readOGR("/Users/ericwtq/Desktop/spatial analytics/final/DataFiles_FinalExam/3_Area2/3_Area2.shp")
+
+P3=readOGR("/Users/ericwtq/Desktop/spatial analytics/final/DataFiles_FinalExam/3_TrailPoints/3_TrailPoints.shp")
+
+P4=readOGR("/Users/ericwtq/Desktop/spatial analytics/final/DataFiles_FinalExam/3_State_Roads/3_State_Roads.shp")
+
+#a
+#find p12,p1',p2'
+P1_2=union(P1,P2)
+
+P12=intersect(P1,P2)
+
+P1_n=erase(P1,P12)
+
+P2_n=erase(P2,P12)
+
+plot(P1_2)
+title(main="overlay of P1 and P2")
+plot(P12,col="red",add=TRUE)
+plot(P1_n,col="blue",add=TRUE)
+plot(P2_n,col="yellow",add=TRUE)
+legend("topleft", legend = c("P12","P1_n","P2_n"), col = c("red","blue","yellow"), pch = 3, lty = 1)
+
+
+
+#b
+P3_1=intersect(P3,P1)
+
+P3_2=intersect(P3,P2)
+
+P3_12=intersect(P3,P12)
+
+plot(P1_2)
+plot(P12,col="red",add=TRUE)
+plot(P1_n,col="blue",add=TRUE)
+plot(P2_n,col="yellow",add=TRUE)
+legend("topleft", legend = c("P12","P1_n","P2_n"), col = c("red","blue","yellow"), pch = 3, lty = 1)
+title(main="overlay P3 on P1,P2,P12")
+plot(P3_1,col="black",add=TRUE)
+plot(P3_2,col="green",add=TRUE)
+plot(P3_12,col="brown",add=TRUE)
+legend("topleft", legend = c("P12","P1_n","P2_n","P3_1","P3_2","P3_12"), col = c("red","blue","yellow","black","green","brown"), pch = 3, lty = 1)
+
+
+
+
+
+
+#c
+P4_1=intersect(P4,P1)
+
+sum(P4_1@data$SEG_LNGTH_)
+
+P4_2=intersect(P4,P2)
+
+sum(P4_2@data$SEG_LNGTH_)
+
+P4_12=intersect(P4,P12)
+
+sum(P4_12@data$SEG_LNGTH_)
+
+plot(P1_2)
+plot(P12,col="red",add=TRUE)
+plot(P1_n,col="blue",add=TRUE)
+plot(P2_n,col="yellow",add=TRUE)
+title(main="overlay P4 on P1,P2,P12")
+plot(P4_1,col="black",add=TRUE)
+plot(P4_2,col="green",add=TRUE)
+plot(P4_12,col="brown",add=TRUE)
+legend("topleft", legend = c("P12","P1_n","P2_n","P4_1","P4_2","P4_12"), col = c("red","blue","yellow","black","green","brown"), pch = 3, lty = 1)
+
+
+
+
+
+
+
+
+```

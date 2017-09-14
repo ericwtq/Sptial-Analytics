@@ -1,0 +1,155 @@
+---
+title: "Project4"
+author: "Tianqi Wang"
+date: "4/11/2017"
+output: word_document
+---
+```{r}
+#load package
+library(sp)
+library(spdep)
+library(classInt)
+library(rgeos)
+library(maptools)
+library(rgdal)
+library(weights)
+library(ggplot2)
+library(ape)
+library(spatstat)
+library(GISTools)
+library(GWmodel)
+library(PBSmapping)
+library(spgwr)
+library(gstat)
+library(tmap)
+library(raster)
+```
+
+part1
+```{r}
+
+#load data
+Council = readOGR("/Users/ericwtq/Desktop/spatial analytics/project4/AlleghenyCounty_Council/AlleghenyCounty_Council.shp")
+
+Municipal = readOGR("/Users/ericwtq/Desktop/spatial analytics/project4/AlleghenyCounty_Municipal/AlleghenyCounty_Municipal.shp")
+
+
+#get the Rook and Queen Matrix for Council
+Council_queen=poly2nb(Council, queen=TRUE)
+Council_rook=poly2nb(Council, queen=FALSE)
+Council_Q_W=nb2listw(Council_queen)
+Council_R_W=nb2listw(Council_rook)
+
+#caculate the moran'i and ceary'c for Council
+Council_Moran_Q=moran.test(Council$SHAPE_area,Council_Q_W)
+Council_Moran_R=moran.test(Council$SHAPE_area,Council_R_W)
+
+Council_Geary_Q=geary.test(Council$SHAPE_area,Council_Q_W)
+Council_Geary_R=geary.test(Council$SHAPE_area,Council_R_W)
+
+#get the Rook and Queen Matrix for Municipal
+Municipal_queen=poly2nb(Municipal, queen=TRUE)
+Municipal_rook=poly2nb(Municipal, queen=FALSE)
+Municipal_Q_W=nb2listw(Municipal_queen)
+Municipal_R_W=nb2listw(Municipal_rook)
+
+#caculate the moran'i and ceary'c for Municipal
+Municipal_Moran_Q=moran.test(Municipal$SHAPE_area,Municipal_Q_W)
+Municipal_Moran_R=moran.test(Municipal$SHAPE_area,Municipal_R_W)
+
+Municipal_Geary_Q=geary.test(Municipal$SHAPE_area,Municipal_Q_W)
+Municipal_Geary_R=geary.test(Municipal$SHAPE_area,Municipal_R_W)
+
+
+```
+
+part2
+```{r}
+Crime_PA2002 = readOGR("/Users/ericwtq/Desktop/spatial analytics/project4/Crime_PA2002/Crime_PA2002.shp")
+
+Crime_PA2002_queen=poly2nb(Crime_PA2002, queen=TRUE)
+Crime_PA2002_rook=poly2nb(Crime_PA2002, queen=FALSE)
+Crime_PA2002_Q_W=nb2listw(Crime_PA2002_queen,style="B")
+Crime_PA2002_R_W=nb2listw(Crime_PA2002_queen,style="B")
+
+#do the global G for the Crime_PA2002
+Crime_PA2002_globalG_Q=globalG.test(Crime_PA2002$BURG01,Crime_PA2002_Q_W,zero.policy=TRUE)
+Crime_PA2002_globalG_R=globalG.test(Crime_PA2002$BURG01,Crime_PA2002_R_W,zero.policy=TRUE)
+
+#perform GWR
+#caculate the Centroid
+Polygon_used=SpatialPolygons2PolySet(Crime_PA2002)
+Crime_Centroid=calcCentroid(Polygon_used, rollup=1)
+
+#caculate weight matrix
+Centroid.dist=as.matrix(dist(cbind(Crime_Centroid$X, Crime_Centroid$Y)))
+weights_m=1/Centroid.dist
+diag(weights_m)=0
+
+#modify the value of the weight matrix
+bandwidth=bw.gwr(formula=INDEX01~POP_CRI01+AG_CRI01+Area, data=Crime_PA2002,kernel="exponential",dMat=weights_m)
+
+weight_pre=(-1)*bandwidth*log(weights_m)
+
+#do the regression
+Crime_regression=gwr.basic(formula=INDEX01~POP_CRI01+AG_CRI01+Area, data=Crime_PA2002,bw=bandwidth,kernel="exponential",dMat=weight_pre)
+
+```
+
+part3
+```{r}
+Ozone_Sensor_Locs=readOGR("/Users/ericwtq/Desktop/spatial analytics/project4/Ozone_Sensor_Locs/Ozone_Sensor_Locs.shp")
+
+PA_County_Select=readOGR("/Users/ericwtq/Desktop/spatial analytics/project4/PA_County_Select/PA_County_Select.shp")
+
+Ozone_value=read.delim("/Users/ericwtq/Desktop/spatial analytics/project4/Data/Ozone_Value.dat",sep = "|")
+colnames(Ozone_value)=c("V1","V2","V3","V4","V5","V6","V7","V8","V9")
+
+PA_centroid=SpatialPolygons2PolySet(PA_County_Select)
+PA_centroid_new=calcCentroid(PA_centroid, rollup=1)
+PA_centroid_new$PID=NULL
+colnames(PA_centroid_new)=c("long","lat")
+
+PA_centroid_new=cbind(PA_centroid_new$lat,PA_centroid_new$long)
+colnames(PA_centroid_new)=c("lat","long")
+
+sampledata=Ozone_Sensor_Locs@data
+
+sampledata$val=0
+
+for (i in 1:13){
+  if ((nrow(Ozone_value[which(Ozone_value$V3==sampledata[i,1]),])) != 0){
+    if(Ozone_value[which(Ozone_value$V3==sampledata[i,1]),6] == "OZONE"){
+      sampledata[i,22]=Ozone_value[which(Ozone_value$V3==sampledata[i,1] & Ozone_value$V6=="OZONE"),8]
+    }
+  }
+}
+
+sampledata_new=sampledata[c(1,2,3,4,5,7,8,9,10,12,13),c(9,10,22)]
+
+locations=SpatialPointsDataFrame(coords=sampledata_new[,c(2,1)],data=sampledata_new,proj4string = CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"))
+
+newdata=SpatialPoints(coords=PA_centroid_new[,c(2,1)],proj4string = CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"))
+
+#do the interpolation
+idw.out=gstat::idw(formula=val~1,locations,newdata,nmax=5,nmin=5)
+
+krige.out=gstat::krige(formula=val~1,locations,newdata,model=vgm(.69, "Exp", 774, .06),nmin=11)
+
+#plot the map of idw interpolation
+idw_plot=PA_County_Select
+
+idw_plot@data=data.frame(PA_County_Select@data,idw.out@data[,1])
+names(idw_plot@data)[58]="val_pre"
+
+p1=tm_shape(idw_plot) + tm_polygons(col="val_pre", auto.palette.mapping=TRUE,title="IDW interpolation") +tm_legend(legend.outside=TRUE)
+
+#plot the map of OK interpolation
+ok_plot=PA_County_Select
+
+ok_plot@data=data.frame(PA_County_Select@data,krige.out@data[,1])
+names(ok_plot@data)[58]="val_pre"
+
+
+
+```
